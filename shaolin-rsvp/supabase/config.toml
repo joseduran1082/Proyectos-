@@ -1,0 +1,5 @@
+project_id = "shaolin-rsvp"
+
+# Función pública: cualquier invitado puede responder. La protección está en la validación del servidor.
+[functions.rsvp]
+verify_jwt = false

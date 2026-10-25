@@ -1,0 +1,13 @@
+{
+  "name": "shaolin-rsvp",
+  "version": "1.0.0",
+  "description": "RSVP page for Shaolin Kung Fu event",
+  "scripts": {
+    "build": "tailwindcss -c tailwind.config.js -i src/input.css -o assets/css/tailwind.css --minify",
+    "watch": "tailwindcss -c tailwind.config.js -i src/input.css -o assets/css/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  },
+  "private": true
+}
