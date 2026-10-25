@@ -245,3 +245,27 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 })();
+async function loadLiveEventDetails() {
+  try {
+    const { data, error } = await window.supabaseClient
+      .from('event_settings')
+      .select('event_date, event_time, event_location')
+      .eq('id', 1)
+      .single();
+
+    if (data && !error) {
+      const dateEl = document.querySelector('[data-event="date"]');
+      const timeEl = document.querySelector('[data-event="time"]');
+      const locEl = document.querySelector('[data-event="location"]');
+
+      if (dateEl) dateEl.textContent = data.event_date;
+      if (timeEl) timeEl.textContent = data.event_time;
+      if (locEl) locEl.textContent = data.event_location;
+    }
+  } catch (err) {
+    console.error("No se pudo cargar la fecha en vivo:", err);
+  }
+}
+
+// Ejecútalo al cargar la página
+loadLiveEventDetails();
