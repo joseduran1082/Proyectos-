@@ -1,25 +1,7 @@
-// =====================================================================
-//  Edge Function "rsvp"  (Supabase · Deno)
-//  - Valida la respuesta del formulario
-//  - Guarda / actualiza el registro en la tabla `rsvps`
-//  - Si el estado es "attending" Y la persona dejó su email (es opcional): envía la invitación con Resend
-//
-//  Por qué existe: la API key de Resend NUNCA debe ir en el navegador.
-//  Vive aquí, como secreto del servidor.
-//
-//  Secretos necesarios (ver README):
-//    RESEND_API_KEY   -> clave de Resend
-//    MAIL_FROM        -> remitente, p. ej. "Shaolin Chuan Tong <rsvp@tudominio.com>"
-//  Opcionales (detalles del evento que salen en el email):
-//    EVENT_NAME, EVENT_DATE, EVENT_TIME, EVENT_LOCATION, EVENT_MAP_URL,
-//    MAIL_REPLY_TO, ALLOWED_ORIGIN
-//  Supabase inyecta solo: SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY.
-
-// =====================================================================
-
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
 
-// ---------- Configuración del evento (editable por variables de entorno) ----------
+// ---------- Configuración del evento ----------
 const EVENT = {
   name: Deno.env.get("EVENT_NAME") ?? "Shaolin Kung Fu",
   host: "Shaolin Chuan Tong Kung Fu",
@@ -30,7 +12,7 @@ const EVENT = {
   audience: "All levels welcome",
 };
 
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "*"; // en producción: "https://tu-sitio.vercel.app"
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "*";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
@@ -48,11 +30,10 @@ const json = (body: unknown, status = 200) =>
 // ---------- Utilidades ----------
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-/** Escapa HTML para que el nombre/mensaje del usuario nunca inyecte código en el email. */
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
-// ---------- Plantilla del email (HTML con estilos inline, compatible con Gmail/Outlook) ----------
+// ---------- Plantilla del email para el invitado ----------
 function confirmationEmail(name: string) {
   const row = (label: string, value: string) => `
     <tr>
@@ -79,7 +60,7 @@ function confirmationEmail(name: string) {
     <tr><td style="padding:16px 32px 36px">
       <p style="margin:0;color:#b9b3a6;font-size:14px;line-height:1.6">
         We will email you again as soon as the date and time are confirmed.
-        If your plans change, reply to this email or answer again on the invitation page.
+        If your plans change, reply directly to this email.
       </p>
     </td></tr>
   </table>
@@ -94,29 +75,39 @@ function confirmationEmail(name: string) {
   return { html, text };
 }
 
-/** Envía el email vía Resend. Devuelve true si Resend aceptó el envío. */
-async function sendConfirmation(to: string, name: string): Promise<boolean> {
-  const apiKey = Deno.env.get("RESEND_API_KEY");
-  const from = Deno.env.get("MAIL_FROM");
-  if (!apiKey || !from) {
-    console.error("Faltan RESEND_API_KEY o MAIL_FROM: no se envía el email.");
+/** Enviar email vía Gmail SMTP */
+async function sendGmail(to: string, subject: string, html: string, text: string): Promise<boolean> {
+  const user = Deno.env.get("SMTP_USER");
+  const pass = Deno.env.get("SMTP_PASS");
+
+  if (!user || !pass) {
+    console.error("Faltan SMTP_USER o SMTP_PASS en Secrets.");
     return false;
   }
-  const { html, text } = confirmationEmail(name);
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      reply_to: Deno.env.get("MAIL_REPLY_TO") || undefined,
-      subject: `You're confirmed · ${EVENT.name}`,
+
+  const client = new SmtpClient();
+  try {
+    await client.connectTLS({
+      hostname: "smtp.gmail.com",
+      port: 465,
+      username: user,
+      password: pass,
+    });
+
+    await client.send({
+      from: `Shaolin Kung Fu <${user}>`,
+      to,
+      subject,
+      content: text,
       html,
-      text,
-    }),
-  });
-  if (!res.ok) console.error("Resend error", res.status, await res.text());
-  return res.ok;
+    });
+
+    await client.close();
+    return true;
+  } catch (error) {
+    console.error("Error enviando por Gmail SMTP:", error);
+    return false;
+  }
 }
 
 // ---------- Handler principal ----------
@@ -131,18 +122,15 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "Invalid request." }, 400);
   }
 
-  // Honeypot: un campo oculto que los humanos no rellenan. Si viene con texto, es un bot.
-  // Respondemos "ok" para no darle pistas, pero no guardamos nada.
+  // Honeypot anti-bots
   if (typeof body.website === "string" && body.website.trim() !== "") return json({ ok: true });
 
-  // ----- Validación en servidor (nunca confíes solo en la validación del navegador) -----
   const fullName = String(body.full_name ?? "").trim().replace(/\s+/g, " ");
   const email = String(body.email ?? "").trim().toLowerCase();
   const status = String(body.status ?? "");
   const message = String(body.message ?? "").trim();
 
   if (fullName.length < 2 || fullName.length > 80) return json({ ok: false, error: "Enter your full name (2–80 characters)." }, 422);
-  // El email es OPCIONAL: vacío = no recibirá invitación por correo.
   if (email && (!EMAIL_RE.test(email) || email.length > 254)) return json({ ok: false, error: "Enter a valid email address, or leave it empty." }, 422);
   if (status !== "attending" && status !== "not_attending") return json({ ok: false, error: "Choose whether you will attend." }, 422);
   if (message.length > 500) return json({ ok: false, error: "Your note is too long (500 characters max)." }, 422);
@@ -151,11 +139,9 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
-  // ----- Guardar o actualizar -----
-  // Con email: una fila por correo (upsert). Sin email: se identifica por nombre (sin distinguir mayúsculas)
-  // entre las respuestas que tampoco tienen correo, para que quien responda dos veces no salga duplicado.
   let confirmationAlreadySent = false;
 
+  // 1. Guardar en Base de Datos
   if (email) {
     const { data: existing, error: readErr } = await db
       .from("rsvps")
@@ -177,7 +163,7 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Could not save your reply. Try again in a moment." }, 500);
     }
   } else {
-    const likeName = fullName.replace(/[\\%_]/g, "\\$&"); // escapar comodines de ilike
+    const likeName = fullName.replace(/[\\%_]/g, "\\$&");
     const { data: prev, error: readErr } = await db
       .from("rsvps")
       .select("id")
@@ -198,16 +184,34 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ----- Email de invitación (solo si asistirá, dejó email y aún no se le envió uno) -----
+  // 2. Email al asistente (si asiste y proporcionó correo)
   let emailSent = false;
-  let emailAttempted = false;
   if (email && status === "attending" && !confirmationAlreadySent) {
-    emailAttempted = true;
-    emailSent = await sendConfirmation(email, fullName);
+    const { html, text } = confirmationEmail(fullName);
+    emailSent = await sendGmail(email, `You're confirmed · ${EVENT.name}`, html, text);
     if (emailSent) {
       await db.from("rsvps").update({ confirmation_sent_at: new Date().toISOString() }).eq("email", email);
     }
   }
 
-  return json({ ok: true, status, emailAttempted, emailSent });
+  // 3. Notificación a tu Gmail (shaolin.zurich@gmail.com)
+  const organizerEmail = Deno.env.get("ORGANIZER_EMAIL") || "shaolin.zurich@gmail.com";
+  const statusBadge = status === "attending" ? "✅ ASISTIRÁ" : "❌ NO ASISTIRÁ";
+
+  const notifHtml = `
+    <div style="font-family: Arial, sans-serif; padding: 24px; background: #171510; color: #efe8da; border-radius: 8px;">
+      <h2 style="color: #c5a059; margin-top: 0;">Nueva respuesta recibida</h2>
+      <p style="margin: 8px 0;"><strong>Nombre:</strong> ${esc(fullName)}</p>
+      <p style="margin: 8px 0;"><strong>Correo:</strong> ${email ? esc(email) : "No indicó correo"}</p>
+      <p style="margin: 8px 0;"><strong>Estado:</strong> <span style="font-weight: bold; color: #efe8da;">${statusBadge}</span></p>
+      <p style="margin: 8px 0;"><strong>Nota / Mensaje:</strong> ${message ? esc(message) : "Ninguna"}</p>
+      <hr style="border: none; border-top: 1px solid #2e2a22; margin: 20px 0;">
+      <p style="font-size: 12px; color: #8c867a; margin: 0;">Registro guardado en Supabase.</p>
+    </div>
+  `;
+  const notifText = `Nueva respuesta:\nNombre: ${fullName}\nCorreo: ${email || "Ninguno"}\nEstado: ${statusBadge}\nNota: ${message || "Ninguna"}`;
+
+  await sendGmail(organizerEmail, `[RSVP] ${fullName} · ${statusBadge}`, notifHtml, notifText);
+
+  return json({ ok: true, status, emailSent });
 });
