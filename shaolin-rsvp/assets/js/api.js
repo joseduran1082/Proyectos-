@@ -80,13 +80,17 @@
     /** payload: { full_name, email, status, message, website } -> Promise<{ ok, emailAttempted, emailSent }> */
     submit: function (payload) {
       if (isDemo) {
-        var email = String(payload.email).trim().toLowerCase();
-        if (!EMAIL_RE.test(email)) return Promise.reject(new Error("Enter a valid email address."));
+        var email = String(payload.email || "").trim().toLowerCase(); // el email es opcional
+        if (email && !EMAIL_RE.test(email)) return Promise.reject(new Error("Enter a valid email address."));
+        var name = String(payload.full_name).trim();
         var rows = demoRead();
-        var i = rows.findIndex(function (r) { return r.email === email; });
+        // Con email: una respuesta por correo. Sin email: se identifica por nombre.
+        var i = rows.findIndex(function (r) {
+          return email ? r.email === email : (!r.email && r.full_name.toLowerCase() === name.toLowerCase());
+        });
         var row = {
-          full_name: String(payload.full_name).trim(),
-          email: email,
+          full_name: name,
+          email: email || null,
           status: payload.status,
           message: payload.message || null,
           created_at: i >= 0 ? rows[i].created_at : new Date().toISOString(),

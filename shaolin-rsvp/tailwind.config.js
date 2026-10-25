@@ -14,11 +14,15 @@ module.exports = {
         "gold-ink": "#1A1407", // texto sobre dorado
         seal: "#B3261E",    // sello rojo 禅
         alert: "#E8A38E",   // errores
+        paper: "#EEE5D4",   // fondo claro del póster
+        "poster-ink": "#0B0A09",   // negro del título
+        "poster-gold": "#B07B34",  // dorado del póster
+        "poster-body": "#4D443A",  // texto secundario sobre claro
       },
       fontFamily: {
         display: ['"Marcellus"', '"Cormorant Garamond"', "Georgia", "serif"],
         sans: ['"Jost"', '"Avenir Next"', '"Century Gothic"', "system-ui", "sans-serif"],
-        cjk: ['"Noto Serif SC"', '"Songti SC"', "STSong", "SimSun", "serif"],
+        cjk: ['"Noto Serif SC"', '"Noto Serif CJK SC"', '"Songti SC"', "STSong", "SimSun", "serif"],
       },
     },
   },

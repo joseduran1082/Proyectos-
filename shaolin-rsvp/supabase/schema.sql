@@ -10,12 +10,16 @@ create table if not exists public.rsvps (
   created_at           timestamptz not null default now(),   -- fecha del primer registro
   updated_at           timestamptz not null default now(),   -- última vez que cambió su respuesta
   full_name            text        not null check (char_length(full_name) between 2 and 80),
-  email                text        not null unique            -- una respuesta por correo
+  email                text        unique                     -- OPCIONAL; si existe, una respuesta por correo
                        check (email = lower(email) and char_length(email) <= 254),
   status               text        not null check (status in ('attending', 'not_attending')),
   message              text                 check (message is null or char_length(message) <= 500),
   confirmation_sent_at timestamptz                            -- cuándo se envió el email de confirmación
 );
+
+-- Si la tabla ya existía con email obligatorio, esto lo vuelve opcional (idempotente).
+-- Postgres permite varias filas con email NULL aunque la columna sea unique.
+alter table public.rsvps alter column email drop not null;
 
 comment on table  public.rsvps        is 'Respuestas RSVP del evento Shaolin Kung Fu';
 comment on column public.rsvps.status is 'attending = Asistirá · not_attending = No asistirá';

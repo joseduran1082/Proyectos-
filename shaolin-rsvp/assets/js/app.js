@@ -23,12 +23,12 @@
   var COPY = {
     attending: {
       title: "I will attend",
-      lead: "Leave your details and we will send you a confirmation email.",
+      lead: "Leave your name to confirm your place. Add your email only if you would like to receive the invitation by email.",
       submit: "Confirm attendance",
     },
     not_attending: {
       title: "I will not attend",
-      lead: "Let the host know. You can change your answer later with the same email.",
+      lead: "Let the host know. You can change your answer later by replying again with the same name or email.",
       submit: "Send reply",
     },
   };
@@ -155,7 +155,8 @@
     var email = fields.email.value.trim();
 
     if (name.length < 2) { setError(fields.name, "Enter your full name."); ok = false; } else setError(fields.name, "");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { setError(fields.email, "Enter a valid email address, like name@example.com."); ok = false; } else setError(fields.email, "");
+    // El email es opcional: solo se valida el formato si la persona escribió algo.
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { setError(fields.email, "Enter a valid email address, like name@example.com, or leave it empty."); ok = false; } else setError(fields.email, "");
     if (fields.message.value.length > 500) { setError(fields.message, "Keep your note under 500 characters."); ok = false; } else setError(fields.message, "");
 
     if (!ok) {
@@ -172,9 +173,9 @@
     if (choice === "attending") {
       title.textContent = "You are confirmed";
       text.textContent = "Thank you, " + name + ". We have saved your place.";
-      if (res.demo) { note.textContent = "Demo mode: no email was sent and your reply stays in this browser."; note.hidden = false; }
-      else if (res.emailSent) { note.textContent = "A confirmation is on its way to " + email + ". Check your spam folder if it does not arrive."; note.hidden = false; }
-      else if (res.emailAttempted) { note.textContent = "Your place is saved, but we could not send the confirmation email. Keep this page for reference."; note.hidden = false; }
+      if (res.demo) { note.textContent = email ? "Demo mode: no email was sent and your reply stays in this browser." : "Demo mode: your reply stays in this browser."; note.hidden = false; }
+      else if (res.emailSent) { note.textContent = "Your invitation is on its way to " + email + ". Check your spam folder if it does not arrive."; note.hidden = false; }
+      else if (res.emailAttempted) { note.textContent = "Your place is saved, but we could not send the invitation email. Keep this page for reference."; note.hidden = false; }
     } else {
       title.textContent = "Reply sent";
       text.textContent = "Thanks for letting us know, " + name + ". If your plans change, answer again with the same email.";
@@ -204,7 +205,7 @@
       website: fields.website.value, // honeypot: debe ir vacío
     }).then(function (res) {
       store("shaolin_name", name);
-      store("shaolin_email", email);
+      store("shaolin_email", email); // puede ser "" (email opcional)
       fields.message.value = "";
       showDone(res, name, email);
       return refreshLists();

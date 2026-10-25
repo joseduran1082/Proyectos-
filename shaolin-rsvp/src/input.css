@@ -8,6 +8,8 @@
  * ===================================================================== */
 
 @layer base {
+  :root { --u: 1vw; --gutter: calc(var(--u) * 7.9); }
+  @media (min-width: 1024px) { :root { --u: clamp(.42rem, .55vw, .5rem); } }
   html { background: #0E0D0B; -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
   body {
     @apply bg-ink font-sans text-bone antialiased;
@@ -23,46 +25,75 @@
 
 @layer components {
 
-  /* ---------- Hero: el monje emerge de la niebla ---------- */
-  .hero-monk {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    z-index: -1;
-    right: -10%;
-    bottom: -1.5rem;
-    width: 100%;
-    max-width: none;
-    height: auto;
-    aspect-ratio: 640 / 849;
-    filter: brightness(.82) contrast(1.08) saturate(1.08);
-    /* Se desvanece hacia el fondo oscuro por arriba y por la izquierda */
-    -webkit-mask-image:
-      linear-gradient(to bottom, transparent 0, #000 34%),
-      linear-gradient(to right, transparent 0, #000 38%);
-    -webkit-mask-composite: source-in;
-    mask-image:
-      linear-gradient(to bottom, transparent 0, #000 34%),
-      linear-gradient(to right, transparent 0, #000 38%);
-    mask-composite: intersect;
+  /* ---------- Hero: el póster tal cual (fondo claro con montañas) ----------
+     --u es la unidad de diseño: 1/100 del ancho del póster.
+     En móvil = 1vw (el póster ocupa todo el ancho); en escritorio queda fija. */
+  .wrap { @apply mx-auto max-w-6xl; padding-inline: var(--gutter); }
+
+  .hero {
+    position: relative;
+    isolation: isolate;
+    overflow: clip; /* no 'hidden': con aspect-ratio impediría que el hero crezca con el contenido */
+    aspect-ratio: 1080 / 1249;
+    color: #0B0A09;
+    background-color: #E9DFCE;
+    background-repeat: no-repeat;
+    /* capa 1: póster sin texto · capa 2: relleno con los colores del borde izquierdo del póster */
+    background-image:
+      url(../img/hero-bg.jpg),
+      linear-gradient(to bottom, #ded2c5 0%, #ece0d0 10%, #ede1d1 20%, #efe3d3 30%, #efe3d3 40%, #ede1d1 50%, #ece0d0 60%, #e8dccd 70%, #eaddcc 80%, #b7aea3 90%, #222220 100%);
+    background-size: cover, 100% 100%;
+    background-position: right bottom, 0 0;
   }
-  @media (min-width: 640px) { .hero-monk { right: 0; width: min(72%, 560px); } }
-  @media (min-width: 1024px) { .hero-monk { bottom: 0; width: auto; height: min(80%, 52rem); } }
-  /* Velo que asegura contraste del texto sobre la imagen */
+  /* Zona inferior: el póster se funde con la parte oscura de la página */
   .hero::after {
     content: "";
     position: absolute;
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background:
-      linear-gradient(to right, rgb(14 13 11 / .9) 0, rgb(14 13 11 / .5) 55%, transparent 88%),
-      linear-gradient(to top, #0E0D0B 0, transparent 22%);
+    background: linear-gradient(to top, #0E0D0B 0, rgb(14 13 11 / 0) 9%);
+  }
+  @media (min-width: 1024px) {
+    .hero::after { background: linear-gradient(to top, #0E0D0B 0, rgb(14 13 11 / 0) 12%); }
+    .hero {
+      aspect-ratio: auto;
+      height: calc(var(--u) * 115.6);
+      background-image: url(../img/hero-bg-wide.jpg), linear-gradient(to bottom, #ded2c5 0%, #ece0d0 10%, #ede1d1 20%, #efe3d3 30%, #efe3d3 40%, #ede1d1 50%, #ece0d0 60%, #e8dccd 70%, #eaddcc 80%, #b7aea3 90%, #222220 100%);
+      background-size: auto 100%, 100% 100%;
+      background-position: right bottom, 0 0;
+    }
   }
 
-  /* ---------- Metadatos del evento ---------- */
-  .meta-label { @apply text-[0.75rem] font-medium uppercase tracking-[0.18em] text-bone; }
-  .meta-value { @apply text-[0.95rem] leading-snug text-mist; }
+  .hero-inner { padding-top: calc(var(--u) * 5.9); padding-bottom: calc(var(--u) * 16); }
+
+  /* Marca */
+  .brand { display: flex; align-items: center; margin-left: calc(var(--u) * -2.5); }
+  .brand-logo { width: calc(var(--u) * 8.1); height: calc(var(--u) * 7.6); flex: none; color: #0B0A09; }
+  .brand-rule { width: max(1px, calc(var(--u) * .25)); height: calc(var(--u) * 7.7); margin-inline: calc(var(--u) * 1.5) calc(var(--u) * 2.2); background: #B07B34; flex: none; }
+  .brand-name { font-family: theme('fontFamily.display'); text-transform: uppercase; letter-spacing: .13em; line-height: 1.32; font-size: max(.62rem, calc(var(--u) * 2.25)); color: #2A241E; }
+
+  /* Caracteres verticales + sello */
+  .hero-cjk { position: absolute; top: calc(var(--u) * 5.9); right: calc(var(--u) * 4.6); display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 2); }
+  .hero-cjk .kanji { font-family: theme('fontFamily.cjk'); font-weight: 500; font-size: calc(var(--u) * 4.9); line-height: 1; letter-spacing: .08em; writing-mode: vertical-rl; text-orientation: upright; height: calc(var(--u) * 21.2); white-space: nowrap; color: #0B0A09; }
+  .hero-cjk .seal { display: grid; place-items: center; width: calc(var(--u) * 3.9); height: calc(var(--u) * 3.9); border-radius: 2px; background: #B3261E; color: #F3EBDD; font-family: theme('fontFamily.cjk'); font-size: calc(var(--u) * 2.6); line-height: 1; }
+
+  /* Título */
+  .hero-title { margin-top: calc(var(--u) * 7.4); font-family: theme('fontFamily.display'); font-weight: 400; font-size: calc(var(--u) * 11.6); line-height: .83; letter-spacing: .005em; }
+  .hero-title .l1 { display: block; color: #0B0A09; }
+  .hero-title .l2 { display: block; color: #B07B34; }
+  .rule { display: block; width: calc(var(--u) * 7.4); height: max(2px, calc(var(--u) * .3)); background: #B07B34; }
+  .hero-lead { font-size: max(.68rem, calc(var(--u) * 2.45)); line-height: 1.5; letter-spacing: .13em; text-transform: uppercase; color: #4D443A; }
+  .hero-lead span { display: block; white-space: nowrap; }
+
+  /* Metadatos del evento */
+  .meta { display: grid; row-gap: calc(var(--u) * 3.35); }
+  .meta-row { display: flex; align-items: center; gap: calc(var(--u) * 3.1); }
+  .meta-icon { width: calc(var(--u) * 5.3); height: calc(var(--u) * 5.3); flex: none; color: #B07B34; }
+  .meta-label { font-size: max(.66rem, calc(var(--u) * 2.1)); font-weight: 500; text-transform: uppercase; letter-spacing: .17em; line-height: 1.3; color: #2A241E; }
+  .meta-value { font-size: max(.74rem, calc(var(--u) * 2)); line-height: 1.35; color: #5A5046; }
+  .meta-value a { display: inline-block; max-width: calc(var(--u) * 36); text-decoration: underline; text-decoration-color: rgb(176 123 52 / .55); text-underline-offset: .25em; }
+  .meta-value a:hover { color: #0B0A09; }
 
   /* ---------- Botones ---------- */
   .btn {

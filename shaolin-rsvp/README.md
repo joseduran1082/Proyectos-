@@ -8,7 +8,8 @@ shaolin-rsvp/
 ├── index.html                  ← la página (hero, botones, listas, modal)
 ├── assets/
 │   ├── css/tailwind.css        ← CSS ya compilado (no necesitas Node para usar la web)
-│   ├── img/monk.jpg            ← monje (recorte del póster, sin texto)
+│   ├── img/hero-bg.jpg         ← póster SIN texto (fondo claro con montañas) · móvil
+│   ├── img/hero-bg-wide.jpg    ← el mismo fondo extendido a la izquierda · escritorio
 │   ├── img/poster.jpg          ← póster original, solo para la vista previa al compartir
 │   └── js/
 │       ├── config.js           ← ★ ÚNICO archivo del frontend que editas (claves + datos del evento)
@@ -41,8 +42,9 @@ Navegador ──(2) POST /rest/v1/rpc/get_rsvp_list ──▶ devuelve SOLO nomb
   (EmailJS/Resend directos desde el frontend exponen la clave y permiten que cualquiera use tu cuenta para enviar correo.)
 * **La tabla está cerrada al público** (RLS sin políticas). La web lee la lista con una función que
   devuelve únicamente nombre y estado: **los correos y notas nunca se exponen**.
-* **Una respuesta por correo.** Si la misma persona responde de nuevo, se actualiza (puede pasar de
-  "No asistirá" a "Asistirá"). El email de confirmación se envía **una sola vez** por correo.
+* **El email es opcional.** Solo quien lo escribe recibe la invitación por correo. Con email: una respuesta por correo
+  (si responde de nuevo, se actualiza; puede pasar de "No asistirá" a "Asistirá") y la invitación se envía **una sola vez**.
+  Sin email: se identifica por nombre, para que quien cambie de respuesta no salga duplicado.
 * **Listas "en vivo":** se refrescan tras cada envío, cada 15 s mientras la pestaña está abierta y al volver a ella.
 
 ---
@@ -54,6 +56,10 @@ Navegador ──(2) POST /rest/v1/rpc/get_rsvp_list ──▶ devuelve SOLO nomb
 2. Cuando termine de crearse: **SQL Editor → New query**, pega todo `supabase/schema.sql` y pulsa **Run**.
 3. Comprueba en **Table Editor** que existe la tabla `rsvps`.
 4. **Project Settings → API**: copia **Project URL** y la clave **anon / publishable**.
+
+> **Si ya habías creado la tabla** (antes de que el email fuera opcional): ejecuta en el SQL Editor
+> `alter table public.rsvps alter column email drop not null;` (o vuelve a pegar `schema.sql` entero) y
+> **vuelve a desplegar la función**: `npx supabase functions deploy rsvp`.
 
 ### 2. Cuenta de Resend (emails)
 1. Crea cuenta en <https://resend.com> → **API Keys → Create API Key** (permiso *Sending access*). Cópiala.

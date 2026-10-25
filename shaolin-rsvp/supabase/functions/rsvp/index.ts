@@ -2,7 +2,7 @@
 //  Edge Function "rsvp"  (Supabase · Deno)
 //  - Valida la respuesta del formulario
 //  - Guarda / actualiza el registro en la tabla `rsvps`
-//  - Si el estado es "attending": envía el email de confirmación con Resend
+//  - Si el estado es "attending" Y la persona dejó su email (es opcional): envía la invitación con Resend
 //
 //  Por qué existe: la API key de Resend NUNCA debe ir en el navegador.
 //  Vive aquí, como secreto del servidor.
@@ -13,7 +13,7 @@
 //  Opcionales (detalles del evento que salen en el email):
 //    EVENT_NAME, EVENT_DATE, EVENT_TIME, EVENT_LOCATION, EVENT_MAP_URL,
 //    MAIL_REPLY_TO, ALLOWED_ORIGIN
-//  Supabase inyecta solo: SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY. https://sykwvhyhyqjkodwmtmif.supabase.co/rest/v1/ re_TbLvYuoX_277XSHpSLfNGeWm9KPW3E73u
+//  Supabase inyecta solo: SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY.
 
 // =====================================================================
 
@@ -142,7 +142,8 @@ Deno.serve(async (req) => {
   const message = String(body.message ?? "").trim();
 
   if (fullName.length < 2 || fullName.length > 80) return json({ ok: false, error: "Enter your full name (2–80 characters)." }, 422);
-  if (!EMAIL_RE.test(email) || email.length > 254) return json({ ok: false, error: "Enter a valid email address." }, 422);
+  // El email es OPCIONAL: vacío = no recibirá invitación por correo.
+  if (email && (!EMAIL_RE.test(email) || email.length > 254)) return json({ ok: false, error: "Enter a valid email address, or leave it empty." }, 422);
   if (status !== "attending" && status !== "not_attending") return json({ ok: false, error: "Choose whether you will attend." }, 422);
   if (message.length > 500) return json({ ok: false, error: "Your note is too long (500 characters max)." }, 422);
 
@@ -150,31 +151,57 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
-  // ¿Ya había respondido con este correo? Sirve para no reenviar el email en cada cambio.
-  const { data: existing, error: readErr } = await db
-    .from("rsvps")
-    .select("status, confirmation_sent_at")
-    .eq("email", email)
-    .maybeSingle();
-  if (readErr) {
-    console.error(readErr);
-    return json({ ok: false, error: "Could not save your reply. Try again in a moment." }, 500);
+  // ----- Guardar o actualizar -----
+  // Con email: una fila por correo (upsert). Sin email: se identifica por nombre (sin distinguir mayúsculas)
+  // entre las respuestas que tampoco tienen correo, para que quien responda dos veces no salga duplicado.
+  let confirmationAlreadySent = false;
+
+  if (email) {
+    const { data: existing, error: readErr } = await db
+      .from("rsvps")
+      .select("status, confirmation_sent_at")
+      .eq("email", email)
+      .maybeSingle();
+    if (readErr) {
+      console.error(readErr);
+      return json({ ok: false, error: "Could not save your reply. Try again in a moment." }, 500);
+    }
+    confirmationAlreadySent = !!existing?.confirmation_sent_at;
+
+    const { error: saveErr } = await db.from("rsvps").upsert(
+      { email, full_name: fullName, status, message: message || null },
+      { onConflict: "email" },
+    );
+    if (saveErr) {
+      console.error(saveErr);
+      return json({ ok: false, error: "Could not save your reply. Try again in a moment." }, 500);
+    }
+  } else {
+    const likeName = fullName.replace(/[\\%_]/g, "\\$&"); // escapar comodines de ilike
+    const { data: prev, error: readErr } = await db
+      .from("rsvps")
+      .select("id")
+      .is("email", null)
+      .ilike("full_name", likeName)
+      .limit(1)
+      .maybeSingle();
+    if (readErr) {
+      console.error(readErr);
+      return json({ ok: false, error: "Could not save your reply. Try again in a moment." }, 500);
+    }
+    const { error: saveErr } = prev
+      ? await db.from("rsvps").update({ full_name: fullName, status, message: message || null }).eq("id", prev.id)
+      : await db.from("rsvps").insert({ email: null, full_name: fullName, status, message: message || null });
+    if (saveErr) {
+      console.error(saveErr);
+      return json({ ok: false, error: "Could not save your reply. Try again in a moment." }, 500);
+    }
   }
 
-  // Guardar o actualizar (una fila por correo).
-  const { error: saveErr } = await db.from("rsvps").upsert(
-    { email, full_name: fullName, status, message: message || null },
-    { onConflict: "email" },
-  );
-  if (saveErr) {
-    console.error(saveErr);
-    return json({ ok: false, error: "Could not save your reply. Try again in a moment." }, 500);
-  }
-
-  // ----- Email de confirmación (solo si asistirá y aún no se le envió uno) -----
+  // ----- Email de invitación (solo si asistirá, dejó email y aún no se le envió uno) -----
   let emailSent = false;
   let emailAttempted = false;
-  if (status === "attending" && !existing?.confirmation_sent_at) {
+  if (email && status === "attending" && !confirmationAlreadySent) {
     emailAttempted = true;
     emailSent = await sendConfirmation(email, fullName);
     if (emailSent) {
