@@ -8,20 +8,19 @@
   <meta name="theme-color" content="#DCD3C4">
   <link rel="icon" type="image/svg+xml" href="assets/img/logo.svg">
 
-  <!-- Vista previa al compartir (WhatsApp, iMessage, LinkedIn…).
-       Tras desplegar, cambia og:image por la URL absoluta: https://TU-DOMINIO/assets/img/poster.jpg -->
+  <!-- Vista previa al compartir (WhatsApp, iMessage, LinkedIn…) -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="Shaolin Kung Fu · Shaolin Chuan Tong">
   <meta property="og:description" content="Discover the philosophy and techniques of Shaolin Kung Fu. Zurich. All levels welcome.">
   <meta property="og:image" content="https://proyectos-shaolin-rsvp-eight.vercel.app/assets/img/poster.jpg">
 
-  <!-- Tipografías: Marcellus (títulos) · Jost (interfaz) · Noto Serif SC solo con los 5 caracteres usados -->
+  <!-- Tipografías: Marcellus (títulos) · Jost (interfaz) · Noto Serif SC -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Marcellus&display=swap">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500&text=%E5%B0%91%E6%9E%97%E5%8A%9F%E5%A4%AB%E7%A6%85&display=swap">
 
-  <!-- CSS compilado de Tailwind (se regenera con `npm run build`; ver README) -->
+  <!-- CSS compilado de Tailwind -->
   <link rel="stylesheet" href="assets/css/tailwind.css">
 </head>
 
@@ -34,7 +33,7 @@
 
   <main>
 
-    <!-- ================= HERO: el póster original (fondo claro, montañas detrás) ================= -->
+    <!-- ================= HERO: póster original ================= -->
     <section class="hero">
       <div class="wrap hero-inner">
 
@@ -81,48 +80,48 @@
         </dl>
       </div>
 
-      <!-- Caracteres verticales + sello (esquina superior derecha, como en el póster) -->
+      <!-- Caracteres verticales + sello -->
       <div class="hero-cjk" aria-hidden="true">
         <span class="kanji">少林功夫</span>
         <span class="seal">禅</span>
       </div>
     </section>
 
-    <!-- ================= ZONA OSCURA: botones y listas ================= -->
+    <!-- ================= ZONA OSCURA: botones ================= -->
     <div class="wrap">
-    <section class="relative z-10 pt-2 lg:max-w-xl" aria-label="Confirm your attendance">
-      <div class="grid grid-cols-2 gap-3 max-[340px]:grid-cols-1">
-        <button type="button" class="btn btn-gold" data-rsvp="attending">I will attend</button>
-        <button type="button" class="btn btn-ghost" data-rsvp="not_attending">I will not attend</button>
-      </div>
-    </section>
+      <section class="relative z-10 pt-2 lg:max-w-xl" aria-label="Confirm your attendance">
+        <div class="grid grid-cols-2 gap-3 max-[340px]:grid-cols-1">
+          <button type="button" class="btn btn-gold" data-rsvp="attending">I will attend</button>
+          <button type="button" class="btn btn-ghost" data-rsvp="not_attending">I will not attend</button>
+        </div>
+      </section>
 
-    <!-- ================= LISTAS ================= -->
-    <section class="mt-14 grid gap-10 pb-4 sm:grid-cols-2 lg:mt-20" aria-label="Replies so far">
-      <div aria-live="polite">
-        <h2 class="list-title">Attending (<span id="countYes">0</span>)</h2>
-        <ul id="listYes" class="mt-3"></ul>
-        <p id="emptyYes" class="mt-3 text-[0.95rem] text-stone">No one yet. Be the first to confirm.</p>
-      </div>
-      <div aria-live="polite">
-        <h2 class="list-title">Not attending (<span id="countNo">0</span>)</h2>
-        <ul id="listNo" class="mt-3"></ul>
-        <p id="emptyNo" class="mt-3 text-[0.95rem] text-stone">No replies yet.</p>
-      </div>
-      <p id="listsError" hidden class="text-[0.9rem] text-alert sm:col-span-2" role="status">
-        Could not refresh the lists. We will try again shortly.
-      </p>
-    </section>
+      <!-- ================= LISTAS PÚBLICAS OCULTAS ================= -->
+      <section hidden class="mt-14 grid gap-10 pb-4 sm:grid-cols-2 lg:mt-20" aria-label="Replies so far">
+        <div aria-live="polite">
+          <h2 class="list-title">Attending (<span id="countYes">0</span>)</h2>
+          <ul id="listYes" class="mt-3"></ul>
+          <p id="emptyYes" class="mt-3 text-[0.95rem] text-stone">No one yet. Be the first to confirm.</p>
+        </div>
+        <div aria-live="polite">
+          <h2 class="list-title">Not attending (<span id="countNo">0</span>)</h2>
+          <ul id="listNo" class="mt-3"></ul>
+          <p id="emptyNo" class="mt-3 text-[0.95rem] text-stone">No replies yet.</p>
+        </div>
+        <p id="listsError" hidden class="text-[0.9rem] text-alert sm:col-span-2" role="status">
+          Could not refresh the lists. We will try again shortly.
+        </p>
+      </section>
 
-    <footer class="pb-16 pt-12">
-      <p class="text-[0.95rem] uppercase tracking-[0.34em] text-mist">Zurich</p>
-    </footer>
+      <footer class="pb-16 pt-12">
+        <p class="text-[0.95rem] uppercase tracking-[0.34em] text-mist">Zurich</p>
+      </footer>
     </div>
   </main>
 
 
   <!-- =====================================================================
-       MODAL DE RESPUESTA  (<dialog> nativo: cierra con Esc, atrapa el foco)
+        MODAL DE RESPUESTA  (<dialog> nativo: cierra con Esc, atrapa el foco)
        ===================================================================== -->
   <dialog id="rsvpDialog" class="dlg" aria-labelledby="dlgTitle">
 
@@ -165,7 +164,7 @@
           <p id="fMessageErr" class="field-err" role="alert"></p>
         </div>
 
-        <!-- Honeypot anti-bots: invisible para personas, los bots lo rellenan -->
+        <!-- Honeypot anti-bots -->
         <div aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden">
           <label>Website <input id="fWebsite" type="text" name="website" tabindex="-1" autocomplete="off"></label>
         </div>
@@ -174,7 +173,7 @@
 
         <button id="submitBtn" type="submit" class="btn btn-gold w-full">Confirm attendance</button>
         <p class="text-center text-[0.8rem] leading-relaxed text-stone">
-          Your name appears on the public list. Your email, if you add one, and your note stay private.
+          Your response, email and note are private and only shared with the organizer.
         </p>
       </form>
     </div>
@@ -191,7 +190,7 @@
     </div>
   </dialog>
 
-  <!-- Scripts clásicos (sin módulos) para que funcione también abriendo index.html con doble clic -->
+  <!-- Scripts -->
   <script src="assets/js/config.js"></script>
   <script src="assets/js/api.js"></script>
   <script src="assets/js/app.js"></script>
