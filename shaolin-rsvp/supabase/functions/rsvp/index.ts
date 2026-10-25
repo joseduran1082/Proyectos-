@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import nodemailer from "npm:nodemailer@6.9.13";
 
-// ---------- Event configuration ----------
+// ---------- Default event configuration (fallback) ----------
 const EVENT = {
   name: Deno.env.get("EVENT_NAME") ?? "Shaolin Kung Fu",
   host: "Shaolin Chuan Tong Kung Fu",
@@ -34,7 +34,7 @@ const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
 // ---------- Email template for the attendee ----------
-function confirmationEmail(name: string) {
+function confirmationEmail(name: string, eventData: typeof EVENT) {
   const row = (label: string, value: string) => `
     <tr>
       <td style="padding:10px 0;border-top:1px solid #2e2a22;width:110px;color:#8c867a;font-size:12px;letter-spacing:.14em;text-transform:uppercase;vertical-align:top">${label}</td>
@@ -45,16 +45,16 @@ function confirmationEmail(name: string) {
 <html lang="en"><body style="margin:0;background:#0e0d0b;padding:24px 12px;font-family:Helvetica,Arial,sans-serif">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#171510">
     <tr><td style="padding:36px 32px 8px">
-      <div style="color:#c5a059;font-size:12px;letter-spacing:.2em;text-transform:uppercase">${esc(EVENT.host)}</div>
-      <h1 style="margin:16px 0 4px;font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:34px;line-height:1.1;color:#efe8da">${esc(EVENT.name)}</h1>
+      <div style="color:#c5a059;font-size:12px;letter-spacing:.2em;text-transform:uppercase">${esc(eventData.host)}</div>
+      <h1 style="margin:16px 0 4px;font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:34px;line-height:1.1;color:#efe8da">${esc(eventData.name)}</h1>
       <p style="margin:18px 0 0;color:#efe8da;font-size:17px;line-height:1.5">Hello ${esc(name)}, your place is confirmed.</p>
     </td></tr>
     <tr><td style="padding:16px 32px 8px">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-        ${row("Date", esc(EVENT.date))}
-        ${row("Time", esc(EVENT.time))}
-        ${row("Location", `${esc(EVENT.location)}<br><a href="${esc(EVENT.mapUrl)}" style="color:#c5a059">Open in Google Maps</a>`)}
-        ${row("For", esc(EVENT.audience))}
+        ${row("Date", esc(eventData.date))}
+        ${row("Time", esc(eventData.time))}
+        ${row("Location", `${esc(eventData.location)}<br><a href="${esc(eventData.mapUrl)}" style="color:#c5a059">Open in Google Maps</a>`)}
+        ${row("For", esc(eventData.audience))}
       </table>
     </td></tr>
     <tr><td style="padding:16px 32px 36px">
@@ -68,14 +68,13 @@ function confirmationEmail(name: string) {
 
   const text =
     `Hello ${name}, your place is confirmed.\n\n` +
-    `${EVENT.name} — ${EVENT.host}\n` +
-    `Date: ${EVENT.date}\nTime: ${EVENT.time}\nLocation: ${EVENT.location}\nMap: ${EVENT.mapUrl}\nFor: ${EVENT.audience}\n\n` +
+    `${eventData.name} — ${eventData.host}\n` +
+    `Date: ${eventData.date}\nTime: ${eventData.time}\nLocation: ${eventData.location}\nMap: ${eventData.mapUrl}\nFor: ${eventData.audience}\n\n` +
     `We will email you again as soon as the date and time are confirmed.`;
 
   return { html, text };
 }
 
-// Configure Gmail transport using Nodemailer
 function createTransporter() {
   const user = Deno.env.get("SMTP_USER");
   const pass = Deno.env.get("SMTP_PASS");
@@ -145,6 +144,20 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
+  // Fetch dynamic event settings from Supabase
+  const { data: eventConfig } = await db
+    .from("event_settings")
+    .select("event_date, event_time, event_location")
+    .eq("id", 1)
+    .maybeSingle();
+
+  const currentEvent = {
+    ...EVENT,
+    date: eventConfig?.event_date ?? EVENT.date,
+    time: eventConfig?.event_time ?? EVENT.time,
+    location: eventConfig?.event_location ?? EVENT.location,
+  };
+
   let confirmationAlreadySent = false;
 
   // 1. Save or update database record
@@ -193,8 +206,8 @@ Deno.serve(async (req) => {
   // 2. Confirmation email to the guest (if attending and email was provided)
   let emailSent = false;
   if (email && status === "attending" && !confirmationAlreadySent) {
-    const { html, text } = confirmationEmail(fullName);
-    emailSent = await sendGmail(email, `You're confirmed · ${EVENT.name}`, html, text);
+    const { html, text } = confirmationEmail(fullName, currentEvent);
+    emailSent = await sendGmail(email, `You're confirmed · ${currentEvent.name}`, html, text);
     if (emailSent) {
       await db.from("rsvps").update({ confirmation_sent_at: new Date().toISOString() }).eq("email", email);
     }
