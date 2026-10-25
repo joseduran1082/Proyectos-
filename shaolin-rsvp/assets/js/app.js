@@ -12,7 +12,7 @@
   var $ = function (sel, root) { return (root || document).querySelector(sel); };
   var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
 
-  function store(key, value) { // localStorage seguro (puede estar bloqueado)
+  function store(key, value) {
     try {
       if (value === undefined) return localStorage.getItem(key);
       localStorage.setItem(key, value);
@@ -51,7 +51,41 @@
   var choice = "attending";
   var lastOpener = null;
 
-  /* ---------- Datos del evento en la página ---------- */
+  /* ---------- Carga dinámica de fecha y hora desde Supabase ---------- */
+  function loadLiveEventDetails() {
+    if (!cfg || !cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) return;
+
+    var endpoint = cfg.SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/event_settings?id=eq.1&select=event_date,event_time,event_location";
+
+    fetch(endpoint, {
+      method: "GET",
+      headers: {
+        "apikey": cfg.SUPABASE_ANON_KEY,
+        "Authorization": "Bearer " + cfg.SUPABASE_ANON_KEY,
+      },
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      })
+      .then(function (rows) {
+        if (!rows || rows.length === 0) return;
+        var data = rows[0];
+
+        var dateEl = $('[data-event="date"]');
+        var timeEl = $('[data-event="time"]');
+        var locEl = $('[data-event="location"]');
+
+        if (dateEl && data.event_date) dateEl.textContent = data.event_date;
+        if (timeEl && data.event_time) timeEl.textContent = data.event_time;
+        if (locEl && data.event_location) locEl.textContent = data.event_location;
+      })
+      .catch(function (err) {
+        console.warn("Could not load dynamic event settings from Supabase:", err);
+      });
+  }
+
+  /* ---------- Datos iniciales de reserva ---------- */
   function fillEvent() {
     var ev = cfg.EVENT || {};
     $$("[data-event]").forEach(function (el) {
@@ -64,7 +98,7 @@
   /* =====================================================================
    *  Listas Attending / Not attending
    * ===================================================================== */
-  var seen = null; // claves ya pintadas (null = primera carga, sin animación)
+  var seen = null;
 
   function fmtDate(iso) {
     try { return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }); }
@@ -77,7 +111,7 @@
       var key = r.full_name + "|" + r.created_at;
       var li = document.createElement("li");
       li.className = "guest";
-      li.textContent = r.full_name; // textContent: el nombre del usuario nunca se interpreta como HTML
+      li.textContent = r.full_name;
       li.title = "Replied " + fmtDate(r.created_at);
       if (seen && !seen.has(key)) li.classList.add("guest-new");
       ul.appendChild(li);
@@ -95,7 +129,6 @@
       seen = new Set(rows.map(function (r) { return r.full_name + "|" + r.created_at; }));
       $("#listsError").hidden = true;
     }).catch(function () {
-      // Si ya había datos en pantalla se conservan; solo avisamos.
       $("#listsError").hidden = false;
     });
   }
@@ -135,7 +168,6 @@
     $("#dlgLead").textContent = c.lead;
     dialog.setAttribute("data-choice", choice);
 
-    // Prellenar con lo último que usó este visitante (solo en su navegador)
     if (!fields.name.value) fields.name.value = store("shaolin_name") || "";
     if (!fields.email.value) fields.email.value = store("shaolin_email") || "";
     updateCounter();
@@ -155,7 +187,6 @@
     var email = fields.email.value.trim();
 
     if (name.length < 2) { setError(fields.name, "Enter your full name."); ok = false; } else setError(fields.name, "");
-    // El email es opcional: solo se valida el formato si la persona escribió algo.
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { setError(fields.email, "Enter a valid email address, like name@example.com, or leave it empty."); ok = false; } else setError(fields.email, "");
     if (fields.message.value.length > 500) { setError(fields.message, "Keep your note under 500 characters."); ok = false; } else setError(fields.message, "");
 
@@ -202,10 +233,10 @@
       email: email,
       status: choice,
       message: fields.message.value.trim(),
-      website: fields.website.value, // honeypot: debe ir vacío
+      website: fields.website.value,
     }).then(function (res) {
       store("shaolin_name", name);
-      store("shaolin_email", email); // puede ser "" (email opcional)
+      store("shaolin_email", email);
       fields.message.value = "";
       showDone(res, name, email);
       return refreshLists();
@@ -222,6 +253,7 @@
    * ===================================================================== */
   function init() {
     fillEvent();
+    loadLiveEventDetails();
 
     if (api.isDemo) $("#demoBar").hidden = false;
 
@@ -233,9 +265,7 @@
     fields.message.addEventListener("input", updateCounter);
     $$("[data-close]").forEach(function (b) { b.addEventListener("click", closeDialog); });
 
-    // Clic en el fondo oscuro (fuera del panel) cierra el modal
     dialog.addEventListener("click", function (e) { if (e.target === dialog) closeDialog(); });
-    // Al cerrar (botón, Esc o fondo) devolver el foco al botón que lo abrió
     dialog.addEventListener("close", function () { if (lastOpener) lastOpener.focus(); });
 
     refreshLists().then(startPolling);
@@ -245,27 +275,3 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 })();
-async function loadLiveEventDetails() {
-  try {
-    const { data, error } = await window.supabaseClient
-      .from('event_settings')
-      .select('event_date, event_time, event_location')
-      .eq('id', 1)
-      .single();
-
-    if (data && !error) {
-      const dateEl = document.querySelector('[data-event="date"]');
-      const timeEl = document.querySelector('[data-event="time"]');
-      const locEl = document.querySelector('[data-event="location"]');
-
-      if (dateEl) dateEl.textContent = data.event_date;
-      if (timeEl) timeEl.textContent = data.event_time;
-      if (locEl) locEl.textContent = data.event_location;
-    }
-  } catch (err) {
-    console.error("No se pudo cargar la fecha en vivo:", err);
-  }
-}
-
-// Ejecútalo al cargar la página
-loadLiveEventDetails();
