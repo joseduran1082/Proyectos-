@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
+import nodemailer from "npm:nodemailer@6.9.13";
 
-// ---------- Configuración del evento ----------
+// ---------- Event configuration ----------
 const EVENT = {
   name: Deno.env.get("EVENT_NAME") ?? "Shaolin Kung Fu",
   host: "Shaolin Chuan Tong Kung Fu",
@@ -27,13 +27,13 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-// ---------- Utilidades ----------
+// ---------- Utilities ----------
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
-// ---------- Plantilla del email para el invitado ----------
+// ---------- Email template for the attendee ----------
 function confirmationEmail(name: string) {
   const row = (label: string, value: string) => `
     <tr>
@@ -75,42 +75,48 @@ function confirmationEmail(name: string) {
   return { html, text };
 }
 
-/** Enviar email vía Gmail SMTP */
-async function sendGmail(to: string, subject: string, html: string, text: string): Promise<boolean> {
+// Configure Gmail transport using Nodemailer
+function createTransporter() {
   const user = Deno.env.get("SMTP_USER");
   const pass = Deno.env.get("SMTP_PASS");
 
   if (!user || !pass) {
-    console.error("Faltan SMTP_USER o SMTP_PASS en Secrets.");
-    return false;
+    console.error("Missing SMTP_USER or SMTP_PASS secrets");
+    return null;
   }
 
-  const client = new SmtpClient();
-  try {
-    await client.connectTLS({
-      hostname: "smtp.gmail.com",
-      port: 465,
-      username: user,
-      password: pass,
-    });
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user,
+      pass,
+    },
+  });
+}
 
-    await client.send({
+/** Send email via Gmail using Nodemailer */
+async function sendGmail(to: string, subject: string, html: string, text: string): Promise<boolean> {
+  const user = Deno.env.get("SMTP_USER");
+  const transporter = createTransporter();
+
+  if (!transporter || !user) return false;
+
+  try {
+    await transporter.sendMail({
       from: `Shaolin Kung Fu <${user}>`,
       to,
       subject,
-      content: text,
+      text,
       html,
     });
-
-    await client.close();
     return true;
   } catch (error) {
-    console.error("Error enviando por Gmail SMTP:", error);
+    console.error("Error sending email via Gmail Nodemailer:", error);
     return false;
   }
 }
 
-// ---------- Handler principal ----------
+// ---------- Main handler ----------
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
@@ -122,7 +128,7 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "Invalid request." }, 400);
   }
 
-  // Honeypot anti-bots
+  // Anti-bot honeypot field
   if (typeof body.website === "string" && body.website.trim() !== "") return json({ ok: true });
 
   const fullName = String(body.full_name ?? "").trim().replace(/\s+/g, " ");
@@ -141,7 +147,7 @@ Deno.serve(async (req) => {
 
   let confirmationAlreadySent = false;
 
-  // 1. Guardar en Base de Datos
+  // 1. Save or update database record
   if (email) {
     const { data: existing, error: readErr } = await db
       .from("rsvps")
@@ -184,7 +190,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 2. Email al asistente (si asiste y proporcionó correo)
+  // 2. Confirmation email to the guest (if attending and email was provided)
   let emailSent = false;
   if (email && status === "attending" && !confirmationAlreadySent) {
     const { html, text } = confirmationEmail(fullName);
@@ -194,22 +200,22 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 3. Notificación a tu Gmail (shaolin.zurich@gmail.com)
+  // 3. Organizer notification to shaolin.zurich@gmail.com
   const organizerEmail = Deno.env.get("ORGANIZER_EMAIL") || "shaolin.zurich@gmail.com";
-  const statusBadge = status === "attending" ? "✅ ASISTIRÁ" : "❌ NO ASISTIRÁ";
+  const statusBadge = status === "attending" ? "✅ ATTENDING" : "❌ NOT ATTENDING";
 
   const notifHtml = `
     <div style="font-family: Arial, sans-serif; padding: 24px; background: #171510; color: #efe8da; border-radius: 8px;">
-      <h2 style="color: #c5a059; margin-top: 0;">Nueva respuesta recibida</h2>
-      <p style="margin: 8px 0;"><strong>Nombre:</strong> ${esc(fullName)}</p>
-      <p style="margin: 8px 0;"><strong>Correo:</strong> ${email ? esc(email) : "No indicó correo"}</p>
-      <p style="margin: 8px 0;"><strong>Estado:</strong> <span style="font-weight: bold; color: #efe8da;">${statusBadge}</span></p>
-      <p style="margin: 8px 0;"><strong>Nota / Mensaje:</strong> ${message ? esc(message) : "Ninguna"}</p>
+      <h2 style="color: #c5a059; margin-top: 0;">New RSVP Response Received</h2>
+      <p style="margin: 8px 0;"><strong>Name:</strong> ${esc(fullName)}</p>
+      <p style="margin: 8px 0;"><strong>Email:</strong> ${email ? esc(email) : "No email provided"}</p>
+      <p style="margin: 8px 0;"><strong>Status:</strong> <span style="font-weight: bold; color: #efe8da;">${statusBadge}</span></p>
+      <p style="margin: 8px 0;"><strong>Note / Message:</strong> ${message ? esc(message) : "None"}</p>
       <hr style="border: none; border-top: 1px solid #2e2a22; margin: 20px 0;">
-      <p style="font-size: 12px; color: #8c867a; margin: 0;">Registro guardado en Supabase.</p>
+      <p style="font-size: 12px; color: #8c867a; margin: 0;">Record stored in Supabase.</p>
     </div>
   `;
-  const notifText = `Nueva respuesta:\nNombre: ${fullName}\nCorreo: ${email || "Ninguno"}\nEstado: ${statusBadge}\nNota: ${message || "Ninguna"}`;
+  const notifText = `New response:\nName: ${fullName}\nEmail: ${email || "None"}\nStatus: ${statusBadge}\nNote: ${message || "None"}`;
 
   await sendGmail(organizerEmail, `[RSVP] ${fullName} · ${statusBadge}`, notifHtml, notifText);
 
