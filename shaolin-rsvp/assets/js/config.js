@@ -16,8 +16,6 @@ window.RSVP_CONFIG = {
   // Nombre de la Edge Function desplegada (carpeta supabase/functions/rsvp)
   FUNCTION_NAME: "rsvp",
 
-  // Cada cuántos ms se refresca la lista de asistentes mientras la pestaña está visible
-  POLL_MS: 15000,
 
   // Datos del evento. Si la base de datos tiene las tablas event_sessions / event_notes (ver schema.sql),
   // la web usa ESAS filas y estos valores solo sirven de respaldo (modo demo o si la lectura falla).

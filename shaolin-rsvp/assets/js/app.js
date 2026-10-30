@@ -1,5 +1,5 @@
 /* =====================================================================
- *  app.js  —  interfaz: modal, validación, listas en vivo
+ *  app.js  —  interfaz: datos del evento, modal y validación
  *  Depende de: config.js (window.RSVP_CONFIG) y api.js (window.RsvpApi)
  * ===================================================================== */
 (function () {
@@ -63,6 +63,9 @@
   }
 
   function renderEvent(info) {
+    if (info.location) {
+      $$('[data-event="location"]').forEach(function (el) { el.textContent = info.location; });
+    }
     var sessions = (info.sessions || []).filter(function (x) { return x && x.day; });
     if (sessions.length) {
       lines($("#evDays"), sessions.map(function (x) { return x.day; }));
@@ -117,58 +120,12 @@
           sessions: info.sessions && info.sessions.length ? info.sessions : ev.sessions,
           price: info.price && info.price.length ? info.price : ev.price,
           reminders: info.reminders && info.reminders.length ? info.reminders : ev.reminders,
+          location: info.location || ev.location,
         };
         renderEvent(merged);
       }).catch(function () { /* se mantiene el respaldo */ });
     }
   }
-
-  /* =====================================================================
-   *  Listas Attending / Not attending
-   * ===================================================================== */
-  var seen = null; // claves ya pintadas (null = primera carga, sin animación)
-
-  function fmtDate(iso) {
-    try { return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }); }
-    catch (e) { return ""; }
-  }
-
-  function renderList(ul, countEl, emptyEl, rows) {
-    ul.textContent = "";
-    rows.forEach(function (r) {
-      var key = r.full_name + "|" + r.created_at;
-      var li = document.createElement("li");
-      li.className = "guest";
-      li.textContent = r.full_name; // textContent: el nombre del usuario nunca se interpreta como HTML
-      li.title = "Replied " + fmtDate(r.created_at);
-      if (seen && !seen.has(key)) li.classList.add("guest-new");
-      ul.appendChild(li);
-    });
-    countEl.textContent = rows.length;
-    emptyEl.hidden = rows.length > 0;
-  }
-
-  function refreshLists() {
-    return api.list().then(function (rows) {
-      var yes = rows.filter(function (r) { return r.status === "attending"; });
-      var no = rows.filter(function (r) { return r.status === "not_attending"; });
-      renderList($("#listYes"), $("#countYes"), $("#emptyYes"), yes);
-      renderList($("#listNo"), $("#countNo"), $("#emptyNo"), no);
-      seen = new Set(rows.map(function (r) { return r.full_name + "|" + r.created_at; }));
-      $("#listsError").hidden = true;
-    }).catch(function () {
-      // Si ya había datos en pantalla se conservan; solo avisamos.
-      $("#listsError").hidden = false;
-    });
-  }
-
-  var pollTimer = null;
-  function startPolling() {
-    stopPolling();
-    if (!cfg.POLL_MS) return;
-    pollTimer = setInterval(function () { if (!document.hidden && !dialog.open) refreshLists(); }, cfg.POLL_MS);
-  }
-  function stopPolling() { if (pollTimer) clearInterval(pollTimer); pollTimer = null; }
 
   /* =====================================================================
    *  Modal
@@ -270,7 +227,6 @@
       store("shaolin_email", email); // puede ser "" (email opcional)
       fields.message.value = "";
       showDone(res, name, email);
-      return refreshLists();
     }).catch(function (err) {
       formError.textContent = err.message || "Could not send your reply. Try again.";
       formError.hidden = false;
@@ -300,8 +256,6 @@
     // Al cerrar (botón, Esc o fondo) devolver el foco al botón que lo abrió
     dialog.addEventListener("close", function () { if (lastOpener) lastOpener.focus(); });
 
-    refreshLists().then(startPolling);
-    document.addEventListener("visibilitychange", function () { if (!document.hidden && !dialog.open) refreshLists(); });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

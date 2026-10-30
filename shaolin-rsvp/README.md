@@ -35,13 +35,13 @@ shaolin-rsvp/
 ```
 Navegador ──(1) POST /functions/v1/rsvp──▶ Edge Function ──▶ tabla rsvps (Supabase)
                                               └──────────────▶ Resend ──▶ email al invitado
-Navegador ──(2) POST /rest/v1/rpc/get_rsvp_list ──▶ devuelve SOLO nombre + estado
+Navegador ──(2) POST /rest/v1/rpc/get_event_info ──▶ días, horas, precio, avisos y lugar
 ```
 
 * **La clave de Resend nunca llega al navegador.** Por eso el email se envía desde una Edge Function.
   (EmailJS/Resend directos desde el frontend exponen la clave y permiten que cualquiera use tu cuenta para enviar correo.)
-* **La tabla está cerrada al público** (RLS sin políticas). La web lee la lista con una función que
-  devuelve únicamente nombre y estado: **los correos y notas nunca se exponen**.
+* **La tabla de respuestas está cerrada al público** (RLS sin políticas). La web **no muestra** quién viene y quién no:
+  solo tú ves las respuestas, en Supabase → Table Editor → `rsvps`. Nombres, correos y notas nunca se exponen.
 * **El email es opcional.** Solo quien lo escribe recibe la invitación por correo. Con email: una respuesta por correo
   (si responde de nuevo, se actualiza; puede pasar de "No asistirá" a "Asistirá") y la invitación se envía **una sola vez**.
   Sin email: se identifica por nombre, para que quien cambie de respuesta no salga duplicado.
@@ -102,7 +102,7 @@ Edita `assets/js/config.js`:
 SUPABASE_URL: "https://TU_PROJECT_REF.supabase.co",
 SUPABASE_ANON_KEY: "tu-clave-anon-o-publishable",
 ```
-Fechas, horas, precio y avisos se editan en Supabase → Table Editor → `event_sessions` y `event_notes` (la web y el email se actualizan solos; `EVENT` en `config.js` es solo respaldo). El lugar se cambia en `config.js` (y en el email,
+Fechas, horas, precio y avisos se editan en Supabase → Table Editor → `event_sessions` y `event_notes` (la web y el email se actualizan solos; `EVENT` en `config.js` es solo respaldo). El lugar se cambia en Supabase → `event_settings` → `event_location` (y en el email,
 y vuelve a ejecutar `supabase secrets set …`).
 
 ### 5. Probar
@@ -141,12 +141,11 @@ La web es estática y el CSS ya está compilado: **no hay paso de build**.
 | Quiero… | Dónde |
 |---|---|
 | Cambiar días, horas, precio, avisos | Supabase → Table Editor → `event_sessions` / `event_notes` (añade o borra filas; `sort` ordena) |
-| Cambiar el lugar | `assets/js/config.js` → `EVENT.location` (+ secreto `EVENT_LOCATION` para el email) |
+| Cambiar el lugar | Supabase → Table Editor → `event_settings` → `event_location` (la web y el email lo leen de ahí) |
 | Cambiar colores o fuentes | `tailwind.config.js` (`colors`, `fontFamily`) |
 | Cambiar estilos | `src/input.css` o clases en `index.html`, luego `npm install && npm run build` |
 | Cambiar el texto del email | `confirmationEmail()` en `supabase/functions/rsvp/index.ts` |
 | Ver / exportar asistentes con correo | Supabase → Table Editor, o SQL: `select full_name, email, message from rsvps where status='attending'` |
-| Cambiar la frecuencia de refresco | `POLL_MS` en `config.js` |
 
 ## Problemas frecuentes
 
@@ -155,7 +154,7 @@ La web es estática y el CSS ya está compilado: **no hay paso de build**.
 | Se ve el aviso amarillo "Demo mode" | `config.js` aún tiene los valores `YOUR_…`. |
 | "Could not reach the server" | URL mal escrita, función sin desplegar, o `ALLOWED_ORIGIN` no coincide con tu dominio. Mira *Edge Functions → Logs*. |
 | Se guarda la respuesta pero no llega el email | `RESEND_API_KEY`/`MAIL_FROM` sin definir, remitente sin dominio verificado, o estás enviando a un correo que no es el tuyo con `onboarding@resend.dev`. Los logs de la función lo indican. |
-| La lista siempre está vacía | No ejecutaste `schema.sql` completo (falta `get_rsvp_list`) o la clave anon es incorrecta. |
+| Los días, horas, precio o avisos no salen | No ejecutaste `schema.sql` completo (falta `get_event_info`) o la clave anon es incorrecta. |
 | Quiero reenviar el email a alguien | En SQL: `update rsvps set confirmation_sent_at = null where email = 'x@y.com'` y que vuelva a responder. |
 
 ## Seguridad y privacidad

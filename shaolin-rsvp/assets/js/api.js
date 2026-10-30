@@ -1,9 +1,9 @@
 /* =====================================================================
  *  api.js  —  capa de datos
- *  Expone window.RsvpApi = { isDemo, list(), submit(payload) }
+ *  Expone window.RsvpApi = { isDemo, eventInfo(), submit(payload) }
  *
  *  Modo real : habla con Supabase por HTTP (sin librerías):
- *              · list()   -> RPC pública get_rsvp_list (solo nombre + estado)
+ *              · eventInfo() -> RPC pública get_event_info (días, horas, precio, avisos, lugar)
  *              · submit() -> Edge Function "rsvp" (guarda y envía el email)
  *  Modo demo : localStorage, para probar la interfaz sin backend.
  * ===================================================================== */
@@ -66,16 +66,6 @@
 
   window.RsvpApi = {
     isDemo: isDemo,
-
-    /** -> Promise<[{ full_name, status, created_at }]> */
-    list: function () {
-      if (isDemo) {
-        return Promise.resolve(demoRead().map(function (r) {
-          return { full_name: r.full_name, status: r.status, created_at: r.created_at };
-        }));
-      }
-      return request(cfg.SUPABASE_URL + "/rest/v1/rpc/get_rsvp_list", {});
-    },
 
     /** -> Promise<{ sessions:[{day,hours}], price:[], reminders:[] } | null>  (null en demo o si no hay datos) */
     eventInfo: function () {

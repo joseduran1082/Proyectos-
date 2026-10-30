@@ -29,7 +29,7 @@ const EVENT = {
 };
 
 // Respaldo si las tablas event_sessions / event_notes no existen o están vacías.
-type EventInfo = { sessions: { day: string; hours: string }[]; price: string[]; reminders: string[] };
+type EventInfo = { sessions: { day: string; hours: string }[]; price: string[]; reminders: string[]; location?: string };
 const FALLBACK_INFO: EventInfo = {
   sessions: [
     { day: "Thursday 5 November", hours: "12:00 – 13:00" },
@@ -89,7 +89,7 @@ function confirmationEmail(name: string, info: EventInfo) {
         ${days ? row("Date", days) : ""}
         ${hours ? row("Time", hours) : ""}
         ${price ? row("Price", price) : ""}
-        ${row("Location", `${esc(EVENT.location)}<br><a href="${esc(EVENT.mapUrl)}" style="color:#c5a059">Open in Google Maps</a>`)}
+        ${row("Location", `${esc(info.location || EVENT.location)}<br><a href="${esc(EVENT.mapUrl)}" style="color:#c5a059">Open in Google Maps</a>`)}
         ${row("For", esc(EVENT.audience))}
       </table>
     </td></tr>
@@ -110,7 +110,7 @@ function confirmationEmail(name: string, info: EventInfo) {
     `${EVENT.name} — ${EVENT.host}\n` +
     info.sessions.map((x) => `${x.day}, ${x.hours}`).join("\n") + "\n" +
     (info.price.length ? `Price: ${info.price.join(" · ")}\n` : "") +
-    `Location: ${EVENT.location}\nMap: ${EVENT.mapUrl}\nFor: ${EVENT.audience}\n` +
+    `Location: ${info.location || EVENT.location}\nMap: ${EVENT.mapUrl}\nFor: ${EVENT.audience}\n` +
     (info.reminders.length ? `\nReminder:\n${info.reminders.map((x, i) => `${i + 1}. ${x}`).join("\n")}\n` : "") +
     `\nIf your plans change, reply to this email or answer again on the invitation page.`;
 
@@ -127,6 +127,7 @@ async function loadEventInfo(db: ReturnType<typeof createClient>): Promise<Event
       sessions: d.sessions?.length ? d.sessions : FALLBACK_INFO.sessions,
       price: d.price?.length ? d.price : FALLBACK_INFO.price,
       reminders: d.reminders?.length ? d.reminders : FALLBACK_INFO.reminders,
+      location: d.location || undefined,
     };
   } catch (e) {
     console.error("get_event_info failed, using fallback:", e);

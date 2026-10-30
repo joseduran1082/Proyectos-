@@ -9,11 +9,11 @@
   <link rel="icon" type="image/svg+xml" href="assets/img/logo.svg">
 
   <!-- Vista previa al compartir (WhatsApp, iMessage, LinkedIn…).
-       Tras desplegar, cambia og:image por la URL absoluta: https://TU-DOMINIO/assets/img/poster.jpg -->
+       og:image debe ser una URL absoluta (la de tu dominio) -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="Shaolin Kung Fu · Shaolin Chuan Tong">
   <meta property="og:description" content="Discover the philosophy and techniques of Shaolin Kung Fu. Zurich. All levels welcome.">
-  <meta property="og:image" content="assets/img/poster.jpg">
+  <meta property="og:image" content="https://shaolinzurich.vercel.app/assets/img/poster.jpg">
 
   <!-- Tipografías: Marcellus (títulos) · Jost (interfaz) · Noto Serif SC solo con los 5 caracteres usados -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -88,7 +88,7 @@
       </div>
     </section>
 
-    <!-- ================= ZONA OSCURA: botones y listas ================= -->
+    <!-- ================= ZONA OSCURA: botones, precio y avisos ================= -->
     <div class="wrap">
     <section class="relative z-10 pt-2 lg:max-w-xl" aria-label="Confirm your attendance">
       <div class="grid grid-cols-2 gap-3 max-[340px]:grid-cols-1">
@@ -107,23 +107,6 @@
         <h2 class="list-title">Reminder</h2>
         <ol id="reminderList" class="mt-3 space-y-2"></ol>
       </div>
-    </section>
-
-    <!-- ================= LISTAS ================= -->
-    <section class="mt-14 grid gap-10 pb-4 sm:grid-cols-2 lg:mt-20" aria-label="Replies so far">
-      <div aria-live="polite">
-        <h2 class="list-title">Attending (<span id="countYes">0</span>)</h2>
-        <ul id="listYes" class="mt-3"></ul>
-        <p id="emptyYes" class="mt-3 text-[0.95rem] text-stone">No one yet. Be the first to confirm.</p>
-      </div>
-      <div aria-live="polite">
-        <h2 class="list-title">Not attending (<span id="countNo">0</span>)</h2>
-        <ul id="listNo" class="mt-3"></ul>
-        <p id="emptyNo" class="mt-3 text-[0.95rem] text-stone">No replies yet.</p>
-      </div>
-      <p id="listsError" hidden class="text-[0.9rem] text-alert sm:col-span-2" role="status">
-        Could not refresh the lists. We will try again shortly.
-      </p>
     </section>
 
     <footer class="pb-16 pt-12">
@@ -186,7 +169,7 @@
 
         <button id="submitBtn" type="submit" class="btn btn-gold w-full">Confirm attendance</button>
         <p class="text-center text-[0.8rem] leading-relaxed text-stone">
-          Your name appears on the public list. Your email, if you add one, and your note stay private.
+          Your details are only shared with the organizers. Your email is optional.
         </p>
       </form>
     </div>

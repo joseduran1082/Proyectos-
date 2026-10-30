@@ -45,21 +45,9 @@ create trigger rsvps_touch_updated_at
 -- Solo la Edge Function (service_role) escribe; la web lee vía la función de abajo.
 alter table public.rsvps enable row level security;
 
--- 4) Lectura pública SOLO de nombre + estado (sin email ni notas) --------
-create or replace function public.get_rsvp_list()
-returns table (full_name text, status text, created_at timestamptz)
-language sql
-security definer
-set search_path = public
-stable
-as $$
-  select r.full_name, r.status, r.created_at
-  from public.rsvps r
-  order by r.created_at asc;
-$$;
-
-revoke all on function public.get_rsvp_list() from public;
-grant execute on function public.get_rsvp_list() to anon, authenticated;
+-- 4) La lista pública de asistentes YA NO EXISTE: se elimina la función que la servía,
+--    para que nadie pueda leer los nombres desde fuera. Tú ves todo en Table Editor → rsvps.
+drop function if exists public.get_rsvp_list();
 
 -- 5) Datos del evento editables desde Supabase (Table Editor) -------------
 --  event_sessions : una fila por día/hora  (puedes tener 1, 2, 3… sesiones)
@@ -101,6 +89,19 @@ select * from (values
 ) as v(sort, kind, text)
 where not exists (select 1 from public.event_notes);
 
+-- Tabla de ajustes generales (una sola fila, id = 1). Si ya la tenías, no se toca.
+-- Se usa para el LUGAR; y como respaldo de fecha/hora si event_sessions está vacía.
+create table if not exists public.event_settings (
+  id             int  primary key default 1,
+  event_date     text,
+  event_time     text,
+  event_location text
+);
+alter table public.event_settings enable row level security;
+insert into public.event_settings (id, event_date, event_time, event_location)
+select 1, null, null, 'Badenerstrasse 569, 8048 Zürich'
+where not exists (select 1 from public.event_settings where id = 1);
+
 -- Lectura pública (la web la usa; el email la lee con la service_role)
 create or replace function public.get_event_info()
 returns jsonb
@@ -110,9 +111,17 @@ set search_path = public
 stable
 as $$
   select jsonb_build_object(
-    'sessions',  coalesce((select jsonb_agg(jsonb_build_object('day', day, 'hours', hours) order by sort, id) from public.event_sessions), '[]'::jsonb),
+    'sessions',
+      case
+        when exists (select 1 from public.event_sessions) then
+          (select jsonb_agg(jsonb_build_object('day', day, 'hours', hours) order by sort, id) from public.event_sessions)
+        when exists (select 1 from public.event_settings where id = 1 and coalesce(event_date, '') <> '') then
+          (select jsonb_build_array(jsonb_build_object('day', event_date, 'hours', coalesce(event_time, ''))) from public.event_settings where id = 1)
+        else '[]'::jsonb
+      end,
     'price',     coalesce((select jsonb_agg(text order by sort, id) from public.event_notes where kind = 'price'), '[]'::jsonb),
-    'reminders', coalesce((select jsonb_agg(text order by sort, id) from public.event_notes where kind = 'reminder'), '[]'::jsonb)
+    'reminders', coalesce((select jsonb_agg(text order by sort, id) from public.event_notes where kind = 'reminder'), '[]'::jsonb),
+    'location',  (select nullif(event_location, '') from public.event_settings where id = 1)
   );
 $$;
 
