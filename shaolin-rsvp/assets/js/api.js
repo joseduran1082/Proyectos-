@@ -77,6 +77,12 @@
       return request(cfg.SUPABASE_URL + "/rest/v1/rpc/get_rsvp_list", {});
     },
 
+    /** -> Promise<{ sessions:[{day,hours}], price:[], reminders:[] } | null>  (null en demo o si no hay datos) */
+    eventInfo: function () {
+      if (isDemo) return Promise.resolve(null);
+      return request(cfg.SUPABASE_URL + "/rest/v1/rpc/get_event_info", {});
+    },
+
     /** payload: { full_name, email, status, message, website } -> Promise<{ ok, emailAttempted, emailSent }> */
     submit: function (payload) {
       if (isDemo) {

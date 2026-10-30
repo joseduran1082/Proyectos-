@@ -19,11 +19,20 @@ window.RSVP_CONFIG = {
   // Cada cuántos ms se refresca la lista de asistentes mientras la pestaña está visible
   POLL_MS: 15000,
 
-  // Datos del evento que se muestran en la página.
-  // (El email usa los mismos datos, definidos como variables EVENT_* de la Edge Function: ver README.)
+  // Datos del evento. Si la base de datos tiene las tablas event_sessions / event_notes (ver schema.sql),
+  // la web usa ESAS filas y estos valores solo sirven de respaldo (modo demo o si la lectura falla).
   EVENT: {
-    date: "To be announced soon",
-    time: "To be announced soon",
+    sessions: [
+      { day: "Thursday 5 November", hours: "12:00 – 13:00" },
+      { day: "Saturday 7 November", hours: "17:00 – 18:00" },
+    ],
+    price: ["Two introductory lessons free", "20 Fr for every next lesson"],
+    reminders: [
+      "Black long pants and black shirt",
+      "Clean shoes for the room",
+      "Parking is hard",
+      "Class starts on time",
+    ],
     location: "Badenerstrasse 569, 8048 Zürich",
     mapUrl: "https://maps.app.goo.gl/KQB4Q64DLjS6X7df7",
     audience: "All levels welcome",

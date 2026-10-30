@@ -8,6 +8,7 @@
  * ===================================================================== */
 
 @layer base {
+  [hidden] { display: none !important; }
   :root { --u: 1vw; --gutter: calc(var(--u) * 7.9); }
   @media (min-width: 1024px) { :root { --u: clamp(.42rem, .55vw, .5rem); } }
   html { background: #0E0D0B; -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
@@ -58,7 +59,7 @@
     .hero::after { background: linear-gradient(to top, #0E0D0B 0, rgb(14 13 11 / 0) 12%); }
     .hero {
       aspect-ratio: auto;
-      height: calc(var(--u) * 115.6);
+      min-height: calc(var(--u) * 115.6);
       background-image: url(../img/hero-bg-wide.jpg), linear-gradient(to bottom, #ded2c5 0%, #ece0d0 10%, #ede1d1 20%, #efe3d3 30%, #efe3d3 40%, #ede1d1 50%, #ece0d0 60%, #e8dccd 70%, #eaddcc 80%, #b7aea3 90%, #222220 100%);
       background-size: auto 100%, 100% 100%;
       background-position: right bottom, 0 0;

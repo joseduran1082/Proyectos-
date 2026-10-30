@@ -83,8 +83,6 @@ npx supabase secrets set \
   RESEND_API_KEY="re_xxxxxxxxxxxxxxxx" \
   MAIL_FROM="Shaolin Chuan Tong <rsvp@tudominio.com>" \
   MAIL_REPLY_TO="tu-correo@ejemplo.com" \
-  EVENT_DATE="To be announced soon" \
-  EVENT_TIME="To be announced soon" \
   EVENT_LOCATION="Badenerstrasse 569, 8048 Zürich"
 
 npx supabase functions deploy rsvp --no-verify-jwt
@@ -104,7 +102,7 @@ Edita `assets/js/config.js`:
 SUPABASE_URL: "https://TU_PROJECT_REF.supabase.co",
 SUPABASE_ANON_KEY: "tu-clave-anon-o-publishable",
 ```
-Y rellena `EVENT` con fecha, hora y lugar cuando los tengas (también el email: variables `EVENT_*` del paso 3,
+Fechas, horas, precio y avisos se editan en Supabase → Table Editor → `event_sessions` y `event_notes` (la web y el email se actualizan solos; `EVENT` en `config.js` es solo respaldo). El lugar se cambia en `config.js` (y en el email,
 y vuelve a ejecutar `supabase secrets set …`).
 
 ### 5. Probar
@@ -142,7 +140,8 @@ La web es estática y el CSS ya está compilado: **no hay paso de build**.
 
 | Quiero… | Dónde |
 |---|---|
-| Cambiar fecha, hora, lugar | `assets/js/config.js` → `EVENT` (+ secretos `EVENT_*` para el email) |
+| Cambiar días, horas, precio, avisos | Supabase → Table Editor → `event_sessions` / `event_notes` (añade o borra filas; `sort` ordena) |
+| Cambiar el lugar | `assets/js/config.js` → `EVENT.location` (+ secreto `EVENT_LOCATION` para el email) |
 | Cambiar colores o fuentes | `tailwind.config.js` (`colors`, `fontFamily`) |
 | Cambiar estilos | `src/input.css` o clases en `index.html`, luego `npm install && npm run build` |
 | Cambiar el texto del email | `confirmationEmail()` en `supabase/functions/rsvp/index.ts` |

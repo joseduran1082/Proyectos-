@@ -61,7 +61,65 @@ $$;
 revoke all on function public.get_rsvp_list() from public;
 grant execute on function public.get_rsvp_list() to anon, authenticated;
 
--- 5) Consultas útiles para ti (organizador) ------------------------------
+-- 5) Datos del evento editables desde Supabase (Table Editor) -------------
+--  event_sessions : una fila por día/hora  (puedes tener 1, 2, 3… sesiones)
+--  event_notes    : una fila por precio o aviso (kind = 'price' o 'reminder')
+--  `sort` ordena las filas (1, 2, 3…). Edita, añade o borra filas y la web y el email se actualizan solos.
+create table if not exists public.event_sessions (
+  id    bigint generated always as identity primary key,
+  sort  int  not null default 0,
+  day   text not null,   -- p. ej. "Thursday 5 November"
+  hours text not null    -- p. ej. "12:00 – 13:00"
+);
+
+create table if not exists public.event_notes (
+  id    bigint generated always as identity primary key,
+  sort  int  not null default 0,
+  kind  text not null check (kind in ('price', 'reminder')),
+  text  text not null
+);
+
+alter table public.event_sessions enable row level security;
+alter table public.event_notes    enable row level security;
+
+-- Datos iniciales (solo si las tablas están vacías)
+insert into public.event_sessions (sort, day, hours)
+select * from (values
+  (1, 'Thursday 5 November', '12:00 – 13:00'),
+  (2, 'Saturday 7 November', '17:00 – 18:00')
+) as v(sort, day, hours)
+where not exists (select 1 from public.event_sessions);
+
+insert into public.event_notes (sort, kind, text)
+select * from (values
+  (1, 'price',    'Two introductory lessons free'),
+  (2, 'price',    '20 Fr for every next lesson'),
+  (1, 'reminder', 'Black long pants and black shirt'),
+  (2, 'reminder', 'Clean shoes for the room'),
+  (3, 'reminder', 'Parking is hard'),
+  (4, 'reminder', 'Class starts on time')
+) as v(sort, kind, text)
+where not exists (select 1 from public.event_notes);
+
+-- Lectura pública (la web la usa; el email la lee con la service_role)
+create or replace function public.get_event_info()
+returns jsonb
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select jsonb_build_object(
+    'sessions',  coalesce((select jsonb_agg(jsonb_build_object('day', day, 'hours', hours) order by sort, id) from public.event_sessions), '[]'::jsonb),
+    'price',     coalesce((select jsonb_agg(text order by sort, id) from public.event_notes where kind = 'price'), '[]'::jsonb),
+    'reminders', coalesce((select jsonb_agg(text order by sort, id) from public.event_notes where kind = 'reminder'), '[]'::jsonb)
+  );
+$$;
+
+revoke all on function public.get_event_info() from public;
+grant execute on function public.get_event_info() to anon, authenticated;
+
+-- 6) Consultas útiles para ti (organizador) ------------------------------
 -- Ver todo (Table Editor también sirve):
 --   select * from public.rsvps order by created_at;
 -- Contadores:
